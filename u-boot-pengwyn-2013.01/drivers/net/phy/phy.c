@@ -453,6 +453,9 @@ int phy_init(void)
 #ifdef CONFIG_PHY_VITESSE
 	phy_vitesse_init();
 #endif
+#ifdef CONFIG_PHY_TI
+	phy_ti_init();
+#endif
 
 	return 0;
 }
@@ -569,7 +572,6 @@ int get_phy_id(struct mii_dev *bus, int addr, int devad, u32 *phy_id)
 		return -EIO;
 
 	*phy_id |= (phy_reg & 0xffff);
-
 	return 0;
 }
 
@@ -598,7 +600,9 @@ struct phy_device *get_phy_device(struct mii_dev *bus, int addr,
 	/* Try Standard (ie Clause 22) access */
 	r = get_phy_id(bus, addr, MDIO_DEVAD_NONE, &phy_id);
 	if (r)
+{
 		return NULL;
+}
 
 	/* If the PHY ID is mostly f's, we didn't find anything */
 	if ((phy_id & 0x1fffffff) != 0x1fffffff)
@@ -667,6 +671,7 @@ int phy_reset(struct phy_device *phydev)
 
 	if (reg & BMCR_RESET) {
 		puts("PHY reset timed out\n");
+		printf("PHY addr 0x%x 0x%x 0x%x\n",phydev->addr, devad, MII_BMCR);
 		return -1;
 	}
 

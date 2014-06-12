@@ -166,7 +166,10 @@ static int check_short_pattern(uint8_t *buf, struct nand_bbt_descr *td)
 	/* Compare the pattern */
 	for (i = 0; i < td->len; i++) {
 		if (p[td->offs + i] != td->pattern[i])
+{
+printf("check_short_pattern %d<%d,%d,%d!=%d\n",i,td->len,td->offs,p[td->offs + i],td->pattern[i]);
 			return -1;
+}
 	}
 	/* Need to check location 1 AND 6? */
 	if (td->options & NAND_BBT_SCANBYTE1AND6) {
@@ -480,10 +483,16 @@ static int scan_block_fast(struct mtd_info *mtd, struct nand_bbt_descr *bd,
 		 */
 		ret = mtd->read_oob(mtd, offs, &ops);
 		if (ret)
+{
+printf("ret=ooblen=%d %d offs=%d\n", mtd->oobsize, ops.ooblen, offs );
 			return ret;
+}
 
 		if (check_short_pattern(buf, bd))
+{
+printf("check_short_pattern=ooblen=%d %d offs=%d\n", mtd->oobsize, ops.ooblen, offs );
 			return 1;
+}
 
 		offs += mtd->writesize;
 	}
@@ -1434,6 +1443,9 @@ int nand_isbad_bbt(struct mtd_info *mtd, loff_t offs, int allowbbt)
 
 	MTDDEBUG(MTD_DEBUG_LEVEL2, "nand_isbad_bbt(): bbt info for offs 0x%08x: (block %d) 0x%02x\n",
 	      (unsigned int)offs, block >> 1, res);
+if (res)
+printf("nand_isbad_bbt(): bbt info for offs 0x%08x: (bbt=%lx) (block %d) 0x%02x\n",
+	      (unsigned int)offs, this->bbt, block >> 1, res);
 
 	switch ((int)res) {
 	case 0x00:

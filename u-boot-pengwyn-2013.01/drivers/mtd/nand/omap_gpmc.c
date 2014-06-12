@@ -258,6 +258,16 @@ struct nand_bch_priv {
 #define ECC_BCH8_NIBBLES	26
 #define ECC_BCH16_NIBBLES	52
 
+#ifdef PENGWYN
+//static struct nand_ecclayout hw_bch8_nand_oob = GPMC_1G_NAND_HW_BCH8_ECC_LAYOUT;
+static struct nand_ecclayout hw_bch16_nand_oob = GPMC_1G_NAND_HW_BCH16_ECC_LAYOUT;
+
+static struct nand_bch_priv bch_priv = {
+	.mode = NAND_ECC_HW_BCH,
+	.type = ECC_BCH16,
+	.nibbles = ECC_BCH16_NIBBLES
+};
+#else
 static struct nand_ecclayout hw_bch8_nand_oob = GPMC_NAND_HW_BCH8_ECC_LAYOUT;
 
 static struct nand_bch_priv bch_priv = {
@@ -265,6 +275,7 @@ static struct nand_bch_priv bch_priv = {
 	.type = ECC_BCH8,
 	.nibbles = ECC_BCH8_NIBBLES
 };
+#endif
 
 /*
  * omap_read_bch8_result - Read BCH result for BCH8 level
@@ -304,6 +315,48 @@ static void omap_read_bch8_result(struct mtd_info *mtd, uint8_t big_endian,
 	}
 }
 
+#ifdef PENGWYN
+/*
+ * omap_read_bch16_result - Read BCH result for BCH16 level (total 26 bytes)
+ *
+ * @mtd:	MTD device structure
+ * @big_endian:	When set read register 3 first
+ * @ecc_code:	Read syndrome from BCH result registers
+ */
+static void omap_read_bch16_result(struct mtd_info *mtd, uint8_t big_endian,
+				uint8_t *ecc_code)
+{
+	uint32_t *ptr;
+	int8_t i = 0, j;
+
+	if (big_endian) {
+		ptr = &gpmc_cfg->bch_result_8_F[0].bch_result_x_6;
+		ecc_code[i++] = (readl(ptr) >>  8) & 0xFF;
+		ecc_code[i++] = readl(ptr) & 0xFF;
+		ptr--;
+		for (j = 0; j < 2; j++) {
+			ecc_code[i++] = (readl(ptr) >> 24) & 0xFF;
+			ecc_code[i++] = (readl(ptr) >> 16) & 0xFF;
+			ecc_code[i++] = (readl(ptr) >>  8) & 0xFF;
+			ecc_code[i++] = readl(ptr) & 0xFF;
+			ptr--;
+		}
+
+		ptr = &gpmc_cfg->bch_result_0_3[0].bch_result_x[3];
+		for (j = 0; j < 4; j++) {
+			ecc_code[i++] = (readl(ptr) >> 24) & 0xFF;
+			ecc_code[i++] = (readl(ptr) >> 16) & 0xFF;
+			ecc_code[i++] = (readl(ptr) >>  8) & 0xFF;
+			ecc_code[i++] = readl(ptr) & 0xFF;
+			ptr--;
+		}
+
+	} else {
+/* not supported and not used, till now */
+	}
+}
+#endif
+
 /*
  * omap_ecc_disable - Disable H/W ECC calculation
  *
@@ -338,7 +391,11 @@ static void omap_rotate_ecc_bch(struct mtd_info *mtd, uint8_t *calc_ecc,
 		break;
 
 	case ECC_BCH16:
+#ifdef PENGWYN
+		n_bytes = 26;// this should be ok for all, and the 28 is wrong
+#else
 		n_bytes = 28;
+#endif
 		break;
 
 	case ECC_BCH8:
@@ -369,6 +426,13 @@ static int omap_calculate_ecc_bch(struct mtd_info *mtd, const uint8_t *dat,
 	if (bch->type == ECC_BCH8)
 		omap_read_bch8_result(mtd, big_endian, ecc_code);
 	else /* BCH4 and BCH16 currently not supported */
+#ifdef PENGWYN
+	if (bch->type == ECC_BCH16)
+	{
+		omap_read_bch16_result(mtd, big_endian, ecc_code);
+	}
+	else
+#endif
 		ret = -1;
 
 	/*
@@ -649,15 +713,15 @@ void omap_nand_switch_ecc(int32_t hardware)
 #ifdef CONFIG_AM33XX
 	} else if (hardware == 2) {
 		nand->ecc.mode = NAND_ECC_HW;
-		nand->ecc.layout = &hw_bch8_nand_oob;
-		nand->ecc.size = 512;
-		nand->ecc.bytes = 14;
+		nand->ecc.layout = &hw_bch16_nand_oob;
+		nand->ecc.size = CONFIG_SYS_NAND_ECCSIZE;//pengwyn 512;
+		nand->ecc.bytes = CONFIG_SYS_NAND_ECCBYTES;//pengwyn 26;
 		nand->ecc.read_page = omap_read_page_bch;
 		nand->ecc.hwctl = omap_enable_ecc_bch;
 		nand->ecc.correct = omap_correct_data_bch;
 		nand->ecc.calculate = omap_calculate_ecc_bch;
 		omap_hwecc_init_bch(nand, NAND_ECC_READ);
-		printf("HW BCH8 selected\n");
+		printf("HW BCH16 selected\n");
 #endif
 	} else {
 		nand->ecc.mode = NAND_ECC_SOFT;
@@ -742,7 +806,11 @@ int board_nand_init(struct nand_chip *nand)
 	/* Default ECC mode */
 #ifdef CONFIG_AM33XX
 	nand->ecc.mode = NAND_ECC_HW;
+#ifdef PENGWYN
+	nand->ecc.layout = &hw_bch16_nand_oob;
+#else
 	nand->ecc.layout = &hw_bch8_nand_oob;
+#endif
 	nand->ecc.size = CONFIG_SYS_NAND_ECCSIZE;
 	nand->ecc.bytes = CONFIG_SYS_NAND_ECCBYTES;
 	nand->ecc.hwctl = omap_enable_ecc_bch;

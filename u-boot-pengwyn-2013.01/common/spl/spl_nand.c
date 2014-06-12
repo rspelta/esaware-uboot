@@ -98,3 +98,4 @@ void spl_nand_load_image(void)
 		spl_image.size, (void *)spl_image.load_addr);
 	nand_deselect();
 }
+

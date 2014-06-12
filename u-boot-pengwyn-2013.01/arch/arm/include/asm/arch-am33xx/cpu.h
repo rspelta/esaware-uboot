@@ -78,6 +78,15 @@ struct bch_res_0_3 {
 	u32 bch_result_x[4];
 };
 
+//#ifdef	PENGWYN
+struct bch_result2 {
+	u32 bch_result_x_4;
+	u32 bch_result_x_5;
+	u32 bch_result_x_6;
+	u32 bch_result_x_res;
+};
+//#endif
+
 struct gpmc {
 	u8 res1[0x10];
 	u32 sysconfig;		/* 0x10 */
@@ -107,7 +116,15 @@ struct gpmc {
 	u8 res7[12];		/* 0x224 */
 	u32 testmomde_ctrl;	/* 0x230 */
 	u8 res8[12];		/* 0x234 */
-	struct bch_res_0_3 bch_result_0_3[2];	/* 0x240 */
+//#ifdef PENGWN
+	struct bch_res_0_3 bch_result_0_3[8];	/* 0x240 */
+	u32 res9[4];							/* 0x2C0 */
+	u32 gpmc_bch_swdata;					/* 0x2D0 */
+	u32 res10[11];							/* 0x2D4 */
+	struct bch_result2 bch_result_8_F[8];	/* 0x300 */
+//#else
+//	struct bch_res_0_3 bch_result_0_3[2];	/* 0x240 */
+//#endif
 };
 
 /* Used for board specific gpmc initialization */

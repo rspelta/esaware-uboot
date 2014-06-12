@@ -57,8 +57,9 @@ static const struct gpio_bank gpio_bank_am33xx[4] = {
 const struct gpio_bank *const omap_gpio_bank = gpio_bank_am33xx;
 
 /* MII mode defines */
-#define MII_MODE_ENABLE		0x0
-#define RGMII_MODE_ENABLE	0xA
+#define MII_MODE_ENABLE		0x00
+#define RMII_MODE_ENABLE	0xC5//ESA
+#define RGMII_MODE_ENABLE	0x0A
 
 /* GPIO that controls power to DDR on EVM-SK */
 #define GPIO_DDR_VTT_EN		7
@@ -319,6 +320,10 @@ void am33xx_spl_board_init(void)
 		/* Set MPU Frequency to 720MHz */
 		mpu_pll_config(MPUPLL_M_720);
 	} else {
+#ifdef PENGWYN
+		//puts( "Set PLL to 720MHz\n");
+		mpu_pll_config(MPUPLL_M_720);
+#else//!PENGWYN
 		uchar buf[4];
 		/*
 		 * EVM PMIC code.  All boards currently want an MPU voltage
@@ -344,6 +349,7 @@ void am33xx_spl_board_init(void)
 			else
 	 			mpu_pll_config(MPUPLL_M_720);
 		}
+#endif//!PENGWYN
 	}
 }
 #endif
@@ -414,6 +420,13 @@ void s_init(void)
 	preloader_console_init();
 #endif
 
+#ifdef PENGWYN
+	header.magic = 0xEE3355AA;
+	strncpy(header.name, "A335X_SK", HDR_NAME_LEN);
+	enable_board_pin_mux(&header);
+	am33xx_spl_board_init();
+	config_ddr(EMIF_REG_SDRAM_TYPE_DDR3);
+#else//!PENGWYN
 	/* Initalize the board header */
 	enable_i2c0_pin_mux();
 	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
@@ -475,6 +488,8 @@ void s_init(void)
 		config_ddr(EMIF_REG_SDRAM_TYPE_DDR3);
 	else
 		config_ddr(EMIF_REG_SDRAM_TYPE_DDR2);
+#endif//!PENGWYN
+
 #endif
 }
 
@@ -580,9 +595,11 @@ int arch_misc_init(void)
  */
 int board_init(void)
 {
+#ifndef PENGWYN
 	i2c_init(CONFIG_SYS_I2C_SPEED, CONFIG_SYS_I2C_SLAVE);
 	if (read_eeprom() < 0)
 		puts("Could not get board ID.\n");
+#endif
 
 	gd->bd->bi_boot_params = PHYS_DRAM_1 + 0x100;
 
@@ -604,31 +621,36 @@ static struct cpsw_slave_data cpsw_slaves[] = {
 	{
 		.slave_reg_ofs	= 0x208,
 		.sliver_reg_ofs	= 0xd80,
-		.phy_id		= 0,
+		.phy_id		    = 0,
 	},
 	{
 		.slave_reg_ofs	= 0x308,
 		.sliver_reg_ofs	= 0xdc0,
-		.phy_id		= 1,
+//ESA		.phy_id		    = 1,
+		.phy_id		    = 7,
 	},
 };
 
 static struct cpsw_platform_data cpsw_data = {
-	.mdio_base		= AM335X_CPSW_MDIO_BASE,
-	.cpsw_base		= AM335X_CPSW_BASE,
-	.mdio_div		= 0xff,
-	.channels		= 8,
-	.cpdma_reg_ofs		= 0x800,
-	.slaves			= 1,
-	.slave_data		= cpsw_slaves,
+	.mdio_base		    = AM335X_CPSW_MDIO_BASE,
+	.cpsw_base		    = AM335X_CPSW_BASE,
+	.mdio_div		    = 0xff,
+	.channels		    = 8,
+	.cpdma_reg_ofs	    = 0x800,
+//ESA #ifdef PENGWYN
+//ESA	.slaves			= 2,
+//ESA #else
+	.slaves			    = 1,
+//ESA #endif
+	.slave_data		    = cpsw_slaves,
 	.ale_reg_ofs		= 0xd00,
 	.ale_entries		= 1024,
 	.host_port_reg_ofs	= 0x108,
 	.hw_stats_reg_ofs	= 0x900,
 	.mac_control		= (1 << 5),
-	.control		= cpsw_control,
+	.control		    = cpsw_control,
 	.host_port_num		= 0,
-	.version		= CPSW_CTRL_VERSION_2,
+	.version		    = CPSW_CTRL_VERSION_2,
 };
 #endif
 
@@ -649,6 +671,7 @@ int board_eth_init(bd_t *bis)
 	mac_addr[3] = (mac_hi & 0xFF000000) >> 24;
 	mac_addr[4] = mac_lo & 0xFF;
 	mac_addr[5] = (mac_lo & 0xFF00) >> 8;
+	//printf("MAC %x %x %x %x %x %x\n",mac_addr[0],mac_addr[1],mac_addr[2],mac_addr[3],mac_addr[4],mac_addr[5]);
 
 #if (defined(CONFIG_DRIVER_TI_CPSW) && !defined(CONFIG_SPL_BUILD)) || \
 	(defined(CONFIG_SPL_ETH_SUPPORT) && defined(CONFIG_SPL_BUILD))
@@ -672,6 +695,17 @@ int board_eth_init(bd_t *bis)
 		}
 	}
 
+#ifdef PENGWYN
+//ESA	cpsw_slaves[0].phy_id = 1;
+//ESA	cpsw_slaves[1].phy_id = 0;
+//ESA	cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if = PHY_INTERFACE_MODE_MII;
+//ESA	writel(MII_MODE_ENABLE, &cdev->miisel);
+
+	printf("Set MII mode %x,%lx = %x\n",RMII_MODE_ENABLE,&cdev->miisel,cdev->miisel);
+	cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if = PHY_INTERFACE_MODE_RMII;
+	writel(RMII_MODE_ENABLE, &cdev->miisel);
+
+#else
 	if (board_is_bone()) {
 		writel(MII_MODE_ENABLE, &cdev->miisel);
 		cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if =
@@ -681,6 +715,7 @@ int board_eth_init(bd_t *bis)
 		cpsw_slaves[0].phy_if = cpsw_slaves[1].phy_if =
 				PHY_INTERFACE_MODE_RGMII;
 	}
+#endif
 
 	rv = cpsw_register(&cpsw_data);
 	if (rv < 0) {
@@ -713,3 +748,4 @@ int board_eth_init(bd_t *bis)
 	return ret;
 }
 #endif
+

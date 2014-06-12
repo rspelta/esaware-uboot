@@ -734,6 +734,7 @@ static int cpsw_init(struct eth_device *dev, bd_t *bis)
 	struct cpsw_slave	*slave;
 	int i, ret;
 
+
 	/* soft reset the controller and initialize priv */
 	setbit_and_wait_for_clear32(&priv->regs->soft_reset);
 
@@ -920,7 +921,11 @@ static int cpsw_phy_init(struct eth_device *dev, struct cpsw_slave *slave)
 			SUPPORTED_100baseT_Full |
 			SUPPORTED_1000baseT_Full);
 
+#ifdef PENGWYN
+	phydev = phy_connect(priv->bus, 1, dev, slave->data->phy_if);
+#else
 	phydev = phy_connect(priv->bus, 0, dev, slave->data->phy_if);
+#endif
 
 	phydev->supported &= supported;
 	phydev->advertising = phydev->supported;
@@ -989,3 +994,4 @@ int cpsw_register(struct cpsw_platform_data *data)
 
 	return 1;
 }
+

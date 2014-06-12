@@ -112,6 +112,7 @@ void miiphy_register(const char *name,
 {
 	struct mii_dev *new_dev;
 	struct legacy_mii_dev *ldev;
+printf(">>>miiphy_register\n");
 
 	BUG_ON(strlen(name) >= MDIO_NAME_LEN);
 

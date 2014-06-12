@@ -233,7 +233,9 @@ void nand_write_buf(struct mtd_info *mtd, const uint8_t *buf, int len)
 	struct nand_chip *chip = mtd->priv;
 
 	for (i = 0; i < len; i++)
+{
 		writeb(buf[i], chip->IO_ADDR_W);
+}
 }
 
 /**
@@ -1462,6 +1464,7 @@ static int nand_write_oob_syndrome(struct mtd_info *mtd,
 	int eccsize = chip->ecc.size, length = mtd->oobsize;
 	int i, len, pos, status = 0, sndcmd = 0, steps = chip->ecc.steps;
 	const uint8_t *bufpoi = chip->oob_poi;
+
 
 	/*
 	 * data-ecc-data-ecc ... ecc-oob
